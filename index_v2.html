@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'" />
 <meta name="referrer" content="no-referrer" />
 <meta name="robots" content="noindex, nofollow" />
 <title>SIMA · Regulatory Horizon Scanner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     /* ===== SIMA brand — swap for exact hex from brand guidelines ===== */
@@ -123,6 +122,43 @@
   .preview h4{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 12px;}
   .tbl-scroll{overflow:auto;max-height:520px;border:1.5px solid var(--line);border-radius:12px;}
   thead th{position:sticky;top:0;}
+  /* ===== copy dialog ===== */
+  .cx-overlay{position:fixed;inset:0;background:rgba(24,20,66,.55);backdrop-filter:blur(2px);
+    display:flex;align-items:center;justify-content:center;padding:24px;z-index:90;}
+  .cx-overlay[hidden]{display:none;}
+  .cx-modal{background:var(--surface);border:1px solid var(--line-strong);border-radius:14px;
+    width:min(1080px,100%);max-height:88vh;display:flex;flex-direction:column;
+    box-shadow:0 24px 60px rgba(24,20,66,.28);overflow:hidden;}
+  .cx-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;
+    padding:18px 22px 14px;border-bottom:1px solid var(--line);}
+  .cx-head h3{font-family:"Poppins",sans-serif;font-size:17px;font-weight:700;color:var(--brand);margin:0;}
+  .cx-sub{font-size:12.5px;color:var(--muted);margin:4px 0 0;}
+  .cx-x{appearance:none;background:none;border:none;cursor:pointer;font-size:26px;line-height:1;
+    color:var(--muted);padding:0 4px;}
+  .cx-x:hover{color:var(--ink);}
+  .cx-cols{padding:14px 22px;border-bottom:1px solid var(--line);background:var(--surface-2);}
+  .cx-lbl{display:block;font-family:"Manrope",sans-serif;font-size:10.5px;font-weight:700;
+    letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;}
+  .cx-chips{display:flex;flex-wrap:wrap;gap:7px;}
+  .cx-chip{appearance:none;cursor:pointer;font-family:"Manrope",sans-serif;font-size:11.5px;
+    font-weight:600;padding:5px 11px;border-radius:20px;border:1px solid var(--line-strong);
+    background:var(--surface);color:var(--ink-soft);}
+  .cx-chip.on{background:var(--brand);border-color:var(--brand);color:#fff;}
+  .cx-preview{overflow:auto;flex:1;padding:0 22px;}
+  .cx-table{border-collapse:collapse;width:100%;font-size:12px;}
+  .cx-table th{position:sticky;top:0;background:var(--brand);color:#fff;text-align:left;
+    font-family:"Manrope",sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.05em;
+    text-transform:uppercase;padding:9px 10px;white-space:nowrap;}
+  .cx-table td{border-bottom:1px solid var(--line);padding:8px 10px;vertical-align:top;
+    color:var(--ink-soft);max-width:340px;}
+  .cx-table tr:nth-child(even) td{background:var(--surface-2);}
+  .cx-foot{display:flex;align-items:center;gap:11px;flex-wrap:wrap;
+    padding:15px 22px;border-top:1px solid var(--line);background:var(--surface-2);}
+  .cx-note{font-size:12px;color:var(--muted);}
+  .cx-note.ok{color:var(--low);font-weight:600;}
+  .cx-note.warn{color:var(--high);font-weight:600;}
+
+  .btn.copied,.btn-mini.copied{background:var(--gold-deep,#8a6d1f)!important;border-color:var(--gold-deep,#8a6d1f)!important;color:#fff!important;}
   .tbl-dl{appearance:none;cursor:pointer;font-family:"Manrope",sans-serif;font-size:11px;font-weight:700;padding:5px 10px;border-radius:6px;border:1px solid var(--gold);background:var(--gold);color:var(--brand-deep);display:inline-flex;align-items:center;gap:5px;white-space:nowrap;transition:all .12s;}
   .tbl-dl:hover{background:var(--gold-deep);border-color:var(--gold-deep);color:#fff;}
   .tbl-dl svg{width:12px;height:12px;}
@@ -161,7 +197,6 @@
 
   <div class="tabstrip">
     <button class="tab active" data-tab="week"><span id="weekTabLabel">This Week</span><span class="count" id="weekCount"></span></button>
-    <button class="tab" data-tab="archive">Archive</button>
   </div>
 
   <div class="wrap">
@@ -173,9 +208,9 @@
           <h2 class="sec-title" id="weekTitle">This week's regulatory changes</h2>
           <p class="lede" id="weekLede"></p>
         </div>
-        <button class="btn btn-ghost" id="weekDownload">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
-          Download all
+        <button class="btn btn-ghost" id="copyBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          <span id="copyBtnLabel">Copy table</span>
         </button>
       </div>
 
@@ -192,38 +227,34 @@
       <div class="cards" id="weekList"></div>
     </section>
 
-    <!-- ============ ARCHIVE ============ -->
-    <section class="panel" id="panel-archive">
-      <div class="sec-head"><div>
-        <h2 class="sec-title">Archive export</h2>
-        <p class="archive-intro">Choose a window, a topic, and a jurisdiction. Preview the matches, then download the Excel.</p>
-      </div></div>
-
-      <div class="form">
-        <div class="form-grid">
-          <div class="field"><label for="fromDate">From date</label><input type="date" id="fromDate" /></div>
-          <div class="field"><label for="toDate">To date</label><input type="date" id="toDate" /></div>
-          <div class="field"><label for="topic">Topic of interest</label><select id="topic"></select></div>
-          <div class="field"><label for="juris">Jurisdiction / province</label><select id="juris"></select></div>
-        </div>
-        <div class="form-actions">
-          <button class="btn btn-primary" id="buildBtn">Build export</button>
-          <button class="btn btn-ghost" id="resetBtn">Reset</button>
-          <button class="btn btn-gold" id="downloadBtn" disabled>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
-            Download Excel
-          </button>
-          <span class="result-note" id="resultNote"></span>
-        </div>
-      </div>
-
-      <div class="preview" id="preview" style="display:none;">
-        <h4 id="previewHeading"></h4>
-        <div class="tbl-scroll"><table id="previewTable"></table></div>
-      </div>
-    </section>
 
   </div>
+
+<!-- ============ COPY DIALOG ============ -->
+<div class="cx-overlay" id="cxOverlay" hidden>
+  <div class="cx-modal" role="dialog" aria-modal="true" aria-labelledby="cxTitle">
+    <div class="cx-head">
+      <div>
+        <h3 id="cxTitle">Copy table</h3>
+        <p class="cx-sub" id="cxSub"></p>
+      </div>
+      <button class="cx-x" id="cxClose" aria-label="Close">&times;</button>
+    </div>
+
+    <div class="cx-cols">
+      <span class="cx-lbl">Columns</span>
+      <div class="cx-chips" id="cxCols"></div>
+    </div>
+
+    <div class="cx-preview"><table class="cx-table" id="cxTable"></table></div>
+
+    <div class="cx-foot">
+      <button class="btn btn-primary" id="cxCopyRich">Copy as table</button>
+      <button class="btn btn-ghost" id="cxCopyTsv">Copy as plain text</button>
+      <span class="cx-note" id="cxNote">Paste into Word or Excel and it arrives as a table.</span>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ============ DATA LAYER — replace RECORDS with reg-scanner output ============ */
@@ -1280,7 +1311,6 @@ function rec(id,country,prov,reg,title,rtype,change,topic,summary,ann,eff,comp,d
     "Source Type":"Regulator","Source Link":link};
 }
 
-const EXPORT_COLUMNS=["Record ID","Jurisdiction_Country","Jurisdiction_Prov","Regulator","Region","Market Type","Regulation Title","Regulation Type","Change Category","Topic Area","Sub-Topic","Summary Short","Summary Long","Announcement Date","Effective Date","Compliance Date","Comment Deadline","Implementation Phase","Status","Impact Level","Impact Type","Affected Functions","Affected Products","Action Required","SIMA Owner","SIMA Policy Group","Status (Internal)","Source Type","Source Link"];
 
 /* ---- output encoding -------------------------------------------------
    Record text is scraped from regulator sites and rewritten by a language
@@ -1300,22 +1330,6 @@ function jcode(r){return JCODE[r.Jurisdiction_Prov]||JCODE[r.Jurisdiction_Countr
 function slugify(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40);}
 function regAbbr(name){const m={"Ontario Securities Commission":"OSC","British Columbia Securities Commission":"BCSC","Alberta Securities Commission":"ASC","Autorité des marchés financiers":"AMF","Canadian Securities Administrators":"CSA","Financial and Consumer Services Commission":"FCNB","Securities and Exchange Commission":"SEC","Commodity Futures Trading Commission":"CFTC","Financial Crimes Enforcement Network":"FinCEN","Financial Conduct Authority":"FCA","European Securities and Markets Authority":"ESMA","European Banking Authority":"EBA","Australian Securities & Investments Commission":"ASIC","China Securities Regulatory Commission":"CSRC"};return m[name]||name;}
 
-function exportToExcel(records,filename,sheetName){
-  if(!records.length)return;
-  /* A cell beginning = + - @ (or tab/CR) is executed as a formula by Excel.
-     Regulator titles are attacker-influenced text, so prefix with an
-     apostrophe to force literal interpretation. */
-  const deFormula=v=>{
-    const s=(v??"")+"";
-    return /^[=+\-@\t\r]/.test(s) ? "'"+s : s;
-  };
-  const aoa=[EXPORT_COLUMNS,...records.map(r=>EXPORT_COLUMNS.map(c=>deFormula(r[c])))];
-  const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=EXPORT_COLUMNS.map(c=>({wch:c==="Summary Short"?60:(c==="Regulation Title"?42:16)}));
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,sheetName||"Regulatory Changes");
-  XLSX.writeFile(wb,filename);
-}
 
 /* ============ LATEST BATCH ============
    The window is derived from the data rather than fixed at 7 days, so a
@@ -1386,8 +1400,8 @@ function renderWeek(){
         <span class="pill impact ${esc(r["Impact Level"])}"><span class="dot"></span>${esc(r["Impact Level"])} impact</span>
         <span class="card-actions">
           <button class="btn-mini" data-id="${esc(r["Record ID"])}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
-            Download Excel
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+            <span class="mini-label">Copy row</span>
           </button>
           <a class="src" href="${esc(safeUrl(r["Source Link"]))}" target="_blank" rel="noopener noreferrer">View source ↗</a>
         </span>
@@ -1402,85 +1416,187 @@ document.getElementById("impactFilter").addEventListener("click",e=>{
   renderWeek();
 });
 
-// per-article download (event delegation)
+/* ============ COPY TO CLIPBOARD ============
+   Replaces the Excel download. Nothing leaves the page as a file, no
+   third-party spreadsheet library is loaded, and there is no .xlsx for a
+   mail gateway to strip. Tab-separated text pastes straight into Excel,
+   Sheets or Word as a table. */
+
+// The columns that get copied. Reorder or trim this list freely — the
+// internal fields (SIMA Owner, Notes, Action Description) are deliberately
+// left out so analyst commentary is not copied around by accident.
+/* Every column the export dialog can offer. `on` sets the default ticks.
+   Order here is the order in the copied table. */
+const COPY_FIELDS=[
+  {key:"Announcement Date",    label:"Date",           on:true },
+  {key:"Jurisdiction_Country", label:"Country",        on:true },
+  {key:"Jurisdiction_Prov",    label:"Province",       on:true },
+  {key:"Regulator",            label:"Regulator",      on:true },
+  {key:"Regulation Title",     label:"Title",          on:true },
+  {key:"Summary Short",        label:"Summary",        on:true },
+  {key:"Topic Area",           label:"Topic",          on:true },
+  {key:"Impact Level",         label:"Impact",         on:true },
+  {key:"Regulation Type",      label:"Type",           on:false},
+  {key:"Change Category",      label:"Change",         on:false},
+  {key:"Implementation Phase", label:"Phase",          on:false},
+  {key:"Status",               label:"Status",         on:false},
+  {key:"Effective Date",       label:"Effective",      on:false},
+  {key:"Comment Deadline",     label:"Deadline",       on:false},
+  {key:"Action Required",      label:"Action req.",    on:false},
+  {key:"Summary Long",         label:"Long summary",   on:false},
+  {key:"Source Link",          label:"Source URL",     on:true },
+];
+
+function cleanCell(v){
+  // Tabs and newlines would break column alignment when pasted as text.
+  return String(v==null?"":v).replace(/[\t\r\n]+/g," ").trim();
+}
+
+/* ---- state: which rows and columns the dialog is working on ---- */
+let cxRows=[];
+let cxOn=new Set(COPY_FIELDS.filter(f=>f.on).map(f=>f.key));
+
+const cxCols=()=>COPY_FIELDS.filter(f=>cxOn.has(f.key));
+
+function toTSV(rows,fields){
+  return [fields.map(f=>f.label).join("\t"),
+          ...rows.map(r=>fields.map(f=>cleanCell(r[f.key])).join("\t"))].join("\n");
+}
+
+/* A real HTML table with inline styles. Word and Excel read the inline CSS,
+   so the paste arrives formatted rather than as a wall of text. */
+function toHTMLTable(rows,fields){
+  const th=fields.map(f=>
+    `<th style="background:#262161;color:#fff;font-family:Arial,sans-serif;font-size:11px;`+
+    `text-align:left;padding:6px 8px;border:1px solid #262161;">${esc(f.label)}</th>`).join("");
+  const tr=rows.map((r,i)=>
+    `<tr style="background:${i%2?"#F7F5EC":"#FFFFFF"};">`+
+    fields.map(f=>{
+      const raw=cleanCell(r[f.key]);
+      const cell=f.key==="Source Link"&&safeUrl(raw)
+        ? `<a href="${esc(safeUrl(raw))}">${esc(raw)}</a>`
+        : esc(raw);
+      return `<td style="font-family:Arial,sans-serif;font-size:11px;padding:5px 8px;`+
+             `border:1px solid #DCDDEB;vertical-align:top;">${cell}</td>`;
+    }).join("")+"</tr>").join("");
+  return `<table style="border-collapse:collapse;"><thead><tr>${th}</tr></thead>`+
+         `<tbody>${tr}</tbody></table>`;
+}
+
+function cxSay(msg,kind){
+  const n=document.getElementById("cxNote");
+  n.textContent=msg;
+  n.className="cx-note"+(kind?" "+kind:"");
+}
+
+/* ---- clipboard ----
+   Rich copy puts text/html AND text/plain on the clipboard together, so the
+   receiving app picks whichever it understands. Word and Excel take the
+   table; a text editor takes the tab-separated version. */
+async function cxCopy(rich){
+  const fields=cxCols();
+  if(!fields.length){cxSay("Pick at least one column.","warn");return;}
+  const tsv=toTSV(cxRows,fields);
+  try{
+    if(rich && navigator.clipboard && window.ClipboardItem && window.isSecureContext){
+      await navigator.clipboard.write([new ClipboardItem({
+        "text/html": new Blob([toHTMLTable(cxRows,fields)],{type:"text/html"}),
+        "text/plain": new Blob([tsv],{type:"text/plain"}),
+      })]);
+      cxSay(`Copied ${cxRows.length} row${cxRows.length===1?"":"s"} as a table.`,"ok");
+      return;
+    }
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(tsv);
+      cxSay(`Copied ${cxRows.length} row${cxRows.length===1?"":"s"} as text.`,"ok");
+      return;
+    }
+    throw new Error("no clipboard API");
+  }catch(err){
+    // file:// has no secure context, so fall back to selecting the rendered
+    // table — copying a selection carries its HTML across natively.
+    if(rich){
+      const t=document.getElementById("cxTable");
+      const sel=window.getSelection(); sel.removeAllRanges();
+      const rng=document.createRange(); rng.selectNode(t); sel.addRange(rng);
+      const ok=document.execCommand&&document.execCommand("copy");
+      if(ok){cxSay(`Copied ${cxRows.length} row(s) as a table.`,"ok");return;}
+      cxSay("Table selected below — press Cmd/Ctrl+C.","warn");
+      return;
+    }
+    const ta=document.createElement("textarea");
+    ta.value=tsv; ta.style.cssText="position:fixed;top:-1000px;opacity:0;";
+    document.body.appendChild(ta); ta.select();
+    const ok=document.execCommand&&document.execCommand("copy");
+    document.body.removeChild(ta);
+    cxSay(ok?"Copied as text.":"Copy blocked — select the table and press Cmd/Ctrl+C.",
+          ok?"ok":"warn");
+  }
+}
+
+/* ---- dialog rendering ---- */
+function cxRenderChips(){
+  document.getElementById("cxCols").innerHTML=COPY_FIELDS.map(f=>
+    `<button class="cx-chip${cxOn.has(f.key)?" on":""}" data-k="${esc(f.key)}">${esc(f.label)}</button>`
+  ).join("");
+}
+
+function cxRenderTable(){
+  const fields=cxCols();
+  const t=document.getElementById("cxTable");
+  if(!fields.length){t.innerHTML=`<tbody><tr><td style="border:none;color:#74798C">No columns selected.</td></tr></tbody>`;return;}
+  const head=`<thead><tr>${fields.map(f=>`<th>${esc(f.label)}</th>`).join("")}</tr></thead>`;
+  const body=`<tbody>${cxRows.map(r=>`<tr>${
+    fields.map(f=>`<td>${esc(cleanCell(r[f.key]))}</td>`).join("")}</tr>`).join("")}</tbody>`;
+  t.innerHTML=head+body;
+}
+
+function cxOpen(rows,title){
+  cxRows=rows;
+  document.getElementById("cxTitle").textContent=title;
+  document.getElementById("cxSub").textContent=
+    `${rows.length} record${rows.length===1?"":"s"} \u2014 tick the columns you need, then copy.`;
+  cxSay("Paste into Word or Excel and it arrives as a table.");
+  cxRenderChips(); cxRenderTable();
+  document.getElementById("cxOverlay").hidden=false;
+  document.body.style.overflow="hidden";
+}
+
+function cxClose(){
+  document.getElementById("cxOverlay").hidden=true;
+  document.body.style.overflow="";
+}
+
+document.getElementById("cxClose").addEventListener("click",cxClose);
+document.getElementById("cxOverlay").addEventListener("click",e=>{
+  if(e.target.id==="cxOverlay")cxClose();          // click the backdrop to dismiss
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&!document.getElementById("cxOverlay").hidden)cxClose();
+});
+document.getElementById("cxCols").addEventListener("click",e=>{
+  const b=e.target.closest(".cx-chip");if(!b)return;
+  const k=b.dataset.k;
+  cxOn.has(k)?cxOn.delete(k):cxOn.add(k);
+  b.classList.toggle("on",cxOn.has(k));
+  cxRenderTable();
+});
+document.getElementById("cxCopyRich").addEventListener("click",()=>cxCopy(true));
+document.getElementById("cxCopyTsv").addEventListener("click",()=>cxCopy(false));
+
+/* ---- entry points ---- */
+document.getElementById("copyBtn").addEventListener("click",()=>{
+  const rows=weekVisible();
+  if(!rows.length)return;
+  cxOpen(rows,"Copy table");
+});
+
 document.getElementById("weekList").addEventListener("click",e=>{
   const b=e.target.closest(".btn-mini");if(!b)return;
   const r=RECORDS.find(x=>x["Record ID"]===b.dataset.id);if(!r)return;
-  exportToExcel([r],`reg_${esc(r["Record ID"])}_${slugify(r["Regulation Title"])}.xlsx`,"Record");
-});
-
-// download all (current filter)
-document.getElementById("weekDownload").addEventListener("click",()=>{
-  const rows=weekVisible();if(!rows.length)return;
-  exportToExcel(rows,`reg_${iso(actualStart)}_to_${iso(latest)}.xlsx`,WIN.short);
+  cxOpen([r],"Copy record");
 });
 renderWeek();
-
-/* ============ ARCHIVE ============ */
-const topicSel=document.getElementById("topic");
-const TOPIC_OPTS=[...new Set(RECORDS.map(r=>r["Topic Area"]).filter(Boolean))].sort();
-topicSel.innerHTML=`<option value="all">All topics</option>`+TOPIC_OPTS.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("");
-const jurisList=[...new Set(RECORDS.map(r=>r.Jurisdiction_Prov||r.Jurisdiction_Country))].sort();
-document.getElementById("juris").innerHTML=`<option value="all">All jurisdictions</option>`+jurisList.map(j=>`<option value="${esc(j)}">${esc(j)}</option>`).join("");
-
-const fromInput=document.getElementById("fromDate"),toInput=document.getElementById("toDate");
-const def90=new Date(latest);def90.setDate(def90.getDate()-90);
-fromInput.value=def90.toISOString().slice(0,10);
-toInput.value=latest.toISOString().slice(0,10);
-let lastResults=[];
-
-function runQuery(){
-  const from=parseD(fromInput.value),to=parseD(toInput.value);
-  const topic=topicSel.value,juris=document.getElementById("juris").value;
-  return RECORDS.filter(r=>{
-    const d=parseD(r["Announcement Date"]);if(!d)return false;
-    if(from&&d<from)return false;
-    if(to&&d>to)return false;
-    if(topic!=="all"&&r["Topic Area"]!==topic)return false;
-    if(juris!=="all"&&r.Jurisdiction_Prov!==juris&&r.Jurisdiction_Country!==juris)return false;
-    return true;
-  }).sort((a,b)=>parseD(b["Announcement Date"])-parseD(a["Announcement Date"]));
-}
-
-document.getElementById("buildBtn").addEventListener("click",()=>{
-  lastResults=runQuery();
-  document.getElementById("resultNote").innerHTML=`<b>${lastResults.length}</b> record${lastResults.length===1?"":"s"} matched`;
-  document.getElementById("downloadBtn").disabled=lastResults.length===0;
-  const prev=document.getElementById("preview");prev.style.display="block";
-  if(!lastResults.length){
-    document.getElementById("previewHeading").textContent="Preview";
-    document.getElementById("previewTable").innerHTML=`<tbody><tr><td class="empty" style="border:none">No records in this window. Widen the dates or clear a filter.</td></tr></tbody>`;
-    return;
-  }
-  document.getElementById("previewHeading").textContent=`${lastResults.length} matching record${lastResults.length===1?"":"s"} — download all above, or any single row below`;
-  const cols=["Date","Jurisdiction","Regulator","Topic Area","Impact","Regulation Title","Excel"];
-  const head=`<thead><tr>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead>`;
-  const body=`<tbody>${lastResults.map(r=>`<tr>
-    <td class="t-mono">${esc(fmtDate(r["Announcement Date"]))}</td>
-    <td>${esc(r.Jurisdiction_Prov||r.Jurisdiction_Country)}</td>
-    <td>${esc(regAbbr(r.Regulator))}</td>
-    <td>${esc(r["Topic Area"])}</td>
-    <td class="t-mono">${esc(r["Impact Level"])}</td>
-    <td class="t-title">${esc(r["Regulation Title"])}</td>
-    <td><button class="tbl-dl" data-id="${esc(r["Record ID"])}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Excel</button></td></tr>`).join("")}</tbody>`;
-  document.getElementById("previewTable").innerHTML=head+body;
-});
-document.getElementById("downloadBtn").addEventListener("click",()=>{
-  if(!lastResults.length)return;
-  exportToExcel(lastResults,`reg_archive_${fromInput.value}_to_${toInput.value}.xlsx`,"Archive");
-});
-document.getElementById("previewTable").addEventListener("click",e=>{
-  const b=e.target.closest(".tbl-dl");if(!b)return;
-  const r=RECORDS.find(x=>x["Record ID"]===b.dataset.id);if(!r)return;
-  exportToExcel([r],`reg_${esc(r["Record ID"])}_${slugify(r["Regulation Title"])}.xlsx`,"Record");
-});
-document.getElementById("resetBtn").addEventListener("click",()=>{
-  fromInput.value=def90.toISOString().slice(0,10);toInput.value=latest.toISOString().slice(0,10);
-  topicSel.value="all";document.getElementById("juris").value="all";
-  document.getElementById("preview").style.display="none";
-  document.getElementById("resultNote").textContent="";
-  document.getElementById("downloadBtn").disabled=true;lastResults=[];
-});
 
 /* ============ TABS ============ */
 document.querySelectorAll(".tab").forEach(t=>{
